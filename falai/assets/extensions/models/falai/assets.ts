@@ -28,33 +28,41 @@ const GlobalArgsSchema = z.object({
 });
 
 const AssetsItemSchema = z.object({
-  asset_id: z.string().nullable().describe(
+  asset_id: z.string().nullable().optional().describe(
     "Asset ID (canonical catalog identity)",
   ),
-  vector_id: z.string().describe("Vector ID. Prefer asset_id for addressing"),
-  request_id: z.string().nullable().describe("Request ID"),
-  url: z.string().nullable().describe("Media URL"),
-  type: z.enum(["image", "video", "audio", "3d"]).describe("Asset media type"),
-  title: z.string().describe("Display title"),
-  endpoint: z.string().nullable().describe(
+  vector_id: z.string().optional().describe(
+    "Vector ID. Prefer asset_id for addressing",
+  ),
+  request_id: z.string().nullable().optional().describe("Request ID"),
+  url: z.string().nullable().optional().describe("Media URL"),
+  type: z.enum(["image", "video", "audio", "3d"]).optional().describe(
+    "Asset media type",
+  ),
+  title: z.string().optional().describe("Display title"),
+  endpoint: z.string().nullable().optional().describe(
     "Model endpoint that produced the asset",
   ),
-  created_at: z.string().nullable().describe("Asset creation time"),
-  source: z.string().nullable().describe("Asset source"),
-  prompt: z.string().nullable().describe("Saved prompt or description"),
-  width: z.number().nullable().describe("Width in pixels"),
-  height: z.number().nullable().describe("Height in pixels"),
-  content_type: z.string().nullable().describe("Media content type"),
-  is_favorited: z.boolean().describe("Whether the asset is favorited"),
-  collection_ids: z.array(z.string()).describe(
+  created_at: z.string().nullable().optional().describe("Asset creation time"),
+  source: z.string().nullable().optional().describe("Asset source"),
+  prompt: z.string().nullable().optional().describe(
+    "Saved prompt or description",
+  ),
+  width: z.number().nullable().optional().describe("Width in pixels"),
+  height: z.number().nullable().optional().describe("Height in pixels"),
+  content_type: z.string().nullable().optional().describe("Media content type"),
+  is_favorited: z.boolean().optional().describe(
+    "Whether the asset is favorited",
+  ),
+  collection_ids: z.array(z.string()).optional().describe(
     "Collections containing this asset",
   ),
   tags: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    created_at: z.string().nullable(),
-  })).describe("Assigned tags"),
-  similarity: z.number().nullable().describe(
+    id: z.string().optional(),
+    name: z.string().optional(),
+    created_at: z.string().nullable().optional(),
+  })).optional().describe("Assigned tags"),
+  similarity: z.number().nullable().optional().describe(
     "Semantic similarity score when applicable",
   ),
 }).passthrough();
@@ -72,30 +80,36 @@ const ListAssetsSchema = z.object({
 });
 
 const AssetCollectionsItemSchema = z.object({
-  id: z.string().describe("Collection ID"),
-  type: z.enum(["manual", "smart", "character"]).describe("Collection type"),
-  name: z.string().describe("Collection display name"),
-  description: z.string().nullable().describe("Collection description"),
-  icon: z.string().nullable().describe("Optional collection icon"),
-  color: z.string().nullable().describe("Optional collection color"),
-  cover_image_url: z.string().nullable().describe(
+  id: z.string().optional().describe("Collection ID"),
+  type: z.enum(["manual", "smart", "character"]).optional().describe(
+    "Collection type",
+  ),
+  name: z.string().optional().describe("Collection display name"),
+  description: z.string().nullable().optional().describe(
+    "Collection description",
+  ),
+  icon: z.string().nullable().optional().describe("Optional collection icon"),
+  color: z.string().nullable().optional().describe("Optional collection color"),
+  cover_image_url: z.string().nullable().optional().describe(
     "Optional cover image URL for the collection",
   ),
-  character_identifier: z.string().nullable().describe(
+  character_identifier: z.string().nullable().optional().describe(
     "Character @mention identifier for character collections",
   ),
-  parent_collection_id: z.string().nullable().describe(
+  parent_collection_id: z.string().nullable().optional().describe(
     "Parent collection ID for a nested (manual) collection; null when top-level",
   ),
-  is_favorited: z.boolean().describe("Whether the collection is favorited"),
+  is_favorited: z.boolean().optional().describe(
+    "Whether the collection is favorited",
+  ),
   filters: z.unknown().optional().describe(
     "Filter DSL backing smart and character collections",
   ),
   asset_count: z.number().nullable().optional().describe(
     "Exact asset count when available; null for smart/character collections",
   ),
-  created_at: z.string().describe("Collection creation time"),
-  updated_at: z.string().describe("Collection update time"),
+  created_at: z.string().optional().describe("Collection creation time"),
+  updated_at: z.string().optional().describe("Collection update time"),
 }).passthrough();
 
 const ListAssetCollectionsSchema = z.object({
@@ -112,27 +126,29 @@ const ListAssetCollectionsSchema = z.object({
 
 const CreateAssetCollectionSchema = z.object({
   collection: z.object({
-    id: z.string(),
-    type: z.enum(["manual", "smart", "character"]),
-    name: z.string(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    color: z.string().nullable(),
-    cover_image_url: z.string().nullable(),
-    character_identifier: z.string().nullable(),
-    parent_collection_id: z.string().nullable(),
-    is_favorited: z.boolean(),
+    id: z.string().optional(),
+    type: z.enum(["manual", "smart", "character"]).optional(),
+    name: z.string().optional(),
+    description: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+    cover_image_url: z.string().nullable().optional(),
+    character_identifier: z.string().nullable().optional(),
+    parent_collection_id: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
     filters: z.unknown().optional(),
     asset_count: z.number().nullable().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-  }).describe("Asset collection"),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+  }).optional().describe("Asset collection"),
 }).passthrough();
 
 const GetAssetCollectionHierarchyItemSchema = z.object({
-  id: z.string().describe("Collection ID"),
-  name: z.string().describe("Collection display name"),
-  type: z.enum(["manual", "smart", "character"]).describe("Collection type"),
+  id: z.string().optional().describe("Collection ID"),
+  name: z.string().optional().describe("Collection display name"),
+  type: z.enum(["manual", "smart", "character"]).optional().describe(
+    "Collection type",
+  ),
 }).passthrough();
 
 const GetAssetCollectionHierarchySchema = z.object({
@@ -149,89 +165,97 @@ const GetAssetCollectionHierarchySchema = z.object({
 
 const FavoriteAssetCollectionSchema = z.object({
   collection: z.object({
-    id: z.string(),
-    type: z.enum(["manual", "smart", "character"]),
-    name: z.string(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    color: z.string().nullable(),
-    cover_image_url: z.string().nullable(),
-    character_identifier: z.string().nullable(),
-    parent_collection_id: z.string().nullable(),
-    is_favorited: z.boolean(),
+    id: z.string().optional(),
+    type: z.enum(["manual", "smart", "character"]).optional(),
+    name: z.string().optional(),
+    description: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+    cover_image_url: z.string().nullable().optional(),
+    character_identifier: z.string().nullable().optional(),
+    parent_collection_id: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
     filters: z.unknown().optional(),
     asset_count: z.number().nullable().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-  }).describe("Asset collection"),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+  }).optional().describe("Asset collection"),
 }).passthrough();
 
 const UnfavoriteAssetCollectionSchema = z.object({
   collection: z.object({
-    id: z.string(),
-    type: z.enum(["manual", "smart", "character"]),
-    name: z.string(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    color: z.string().nullable(),
-    cover_image_url: z.string().nullable(),
-    character_identifier: z.string().nullable(),
-    parent_collection_id: z.string().nullable(),
-    is_favorited: z.boolean(),
+    id: z.string().optional(),
+    type: z.enum(["manual", "smart", "character"]).optional(),
+    name: z.string().optional(),
+    description: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+    cover_image_url: z.string().nullable().optional(),
+    character_identifier: z.string().nullable().optional(),
+    parent_collection_id: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
     filters: z.unknown().optional(),
     asset_count: z.number().nullable().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-  }).describe("Asset collection"),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+  }).optional().describe("Asset collection"),
 }).passthrough();
 
 const MoveAssetCollectionSchema = z.object({
   collection: z.object({
-    id: z.string(),
-    type: z.enum(["manual", "smart", "character"]),
-    name: z.string(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    color: z.string().nullable(),
-    cover_image_url: z.string().nullable(),
-    character_identifier: z.string().nullable(),
-    parent_collection_id: z.string().nullable(),
-    is_favorited: z.boolean(),
+    id: z.string().optional(),
+    type: z.enum(["manual", "smart", "character"]).optional(),
+    name: z.string().optional(),
+    description: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+    cover_image_url: z.string().nullable().optional(),
+    character_identifier: z.string().nullable().optional(),
+    parent_collection_id: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
     filters: z.unknown().optional(),
     asset_count: z.number().nullable().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-  }).describe("Asset collection"),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+  }).optional().describe("Asset collection"),
 }).passthrough();
 
 const AssetCollectionAssetsItemSchema = z.object({
-  asset_id: z.string().nullable().describe(
+  asset_id: z.string().nullable().optional().describe(
     "Asset ID (canonical catalog identity)",
   ),
-  vector_id: z.string().describe("Vector ID. Prefer asset_id for addressing"),
-  request_id: z.string().nullable().describe("Request ID"),
-  url: z.string().nullable().describe("Media URL"),
-  type: z.enum(["image", "video", "audio", "3d"]).describe("Asset media type"),
-  title: z.string().describe("Display title"),
-  endpoint: z.string().nullable().describe(
+  vector_id: z.string().optional().describe(
+    "Vector ID. Prefer asset_id for addressing",
+  ),
+  request_id: z.string().nullable().optional().describe("Request ID"),
+  url: z.string().nullable().optional().describe("Media URL"),
+  type: z.enum(["image", "video", "audio", "3d"]).optional().describe(
+    "Asset media type",
+  ),
+  title: z.string().optional().describe("Display title"),
+  endpoint: z.string().nullable().optional().describe(
     "Model endpoint that produced the asset",
   ),
-  created_at: z.string().nullable().describe("Asset creation time"),
-  source: z.string().nullable().describe("Asset source"),
-  prompt: z.string().nullable().describe("Saved prompt or description"),
-  width: z.number().nullable().describe("Width in pixels"),
-  height: z.number().nullable().describe("Height in pixels"),
-  content_type: z.string().nullable().describe("Media content type"),
-  is_favorited: z.boolean().describe("Whether the asset is favorited"),
-  collection_ids: z.array(z.string()).describe(
+  created_at: z.string().nullable().optional().describe("Asset creation time"),
+  source: z.string().nullable().optional().describe("Asset source"),
+  prompt: z.string().nullable().optional().describe(
+    "Saved prompt or description",
+  ),
+  width: z.number().nullable().optional().describe("Width in pixels"),
+  height: z.number().nullable().optional().describe("Height in pixels"),
+  content_type: z.string().nullable().optional().describe("Media content type"),
+  is_favorited: z.boolean().optional().describe(
+    "Whether the asset is favorited",
+  ),
+  collection_ids: z.array(z.string()).optional().describe(
     "Collections containing this asset",
   ),
   tags: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    created_at: z.string().nullable(),
-  })).describe("Assigned tags"),
-  similarity: z.number().nullable().describe(
+    id: z.string().optional(),
+    name: z.string().optional(),
+    created_at: z.string().nullable().optional(),
+  })).optional().describe("Assigned tags"),
+  similarity: z.number().nullable().optional().describe(
     "Semantic similarity score when applicable",
   ),
 }).passthrough();
@@ -249,32 +273,36 @@ const ListAssetCollectionAssetsSchema = z.object({
 });
 
 const AddAssetToCollectionSchema = z.object({
-  success: z.boolean().describe("Whether the operation succeeded"),
+  success: z.boolean().optional().describe("Whether the operation succeeded"),
 }).passthrough();
 
 const AssetCharactersItemSchema = z.object({
-  id: z.string().describe("Collection ID"),
-  type: z.enum(["character"]).describe("Collection type"),
-  name: z.string().describe("Collection display name"),
-  description: z.string().nullable().describe("Collection description"),
-  icon: z.string().nullable().describe("Optional collection icon"),
-  color: z.string().nullable().describe("Optional collection color"),
-  cover_image_url: z.string().nullable().describe(
+  id: z.string().optional().describe("Collection ID"),
+  type: z.enum(["character"]).optional().describe("Collection type"),
+  name: z.string().optional().describe("Collection display name"),
+  description: z.string().nullable().optional().describe(
+    "Collection description",
+  ),
+  icon: z.string().nullable().optional().describe("Optional collection icon"),
+  color: z.string().nullable().optional().describe("Optional collection color"),
+  cover_image_url: z.string().nullable().optional().describe(
     "Optional cover image URL for the collection",
   ),
-  character_identifier: z.string().nullable().describe(
+  character_identifier: z.string().nullable().optional().describe(
     "Character @mention identifier for character collections",
   ),
-  parent_collection_id: z.string().nullable().describe(
+  parent_collection_id: z.string().nullable().optional().describe(
     "Parent collection ID for a nested (manual) collection; null when top-level",
   ),
-  is_favorited: z.boolean().describe("Whether the collection is favorited"),
+  is_favorited: z.boolean().optional().describe(
+    "Whether the collection is favorited",
+  ),
   asset_count: z.number().nullable().optional().describe(
     "Exact asset count when available; null for smart/character collections",
   ),
-  created_at: z.string().describe("Collection creation time"),
-  updated_at: z.string().describe("Collection update time"),
-  reference_images: z.array(z.string()).describe(
+  created_at: z.string().optional().describe("Collection creation time"),
+  updated_at: z.string().optional().describe("Collection update time"),
+  reference_images: z.array(z.string()).optional().describe(
     "Reference images used for character matching",
   ),
 }).passthrough();
@@ -293,65 +321,117 @@ const ListAssetCharactersSchema = z.object({
 
 const CreateAssetCharacterSchema = z.object({
   character: z.object({
-    id: z.string(),
-    type: z.enum(["character"]),
-    name: z.string(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    color: z.string().nullable(),
-    cover_image_url: z.string().nullable(),
-    character_identifier: z.string().nullable(),
-    parent_collection_id: z.string().nullable(),
-    is_favorited: z.boolean(),
+    id: z.string().optional(),
+    type: z.enum(["character"]).optional(),
+    name: z.string().optional(),
+    description: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+    cover_image_url: z.string().nullable().optional(),
+    character_identifier: z.string().nullable().optional(),
+    parent_collection_id: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
     asset_count: z.number().nullable().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-    reference_images: z.array(z.string()),
-  }).describe("Asset character"),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+    reference_images: z.array(z.string()).optional(),
+  }).optional().describe("Asset character"),
 }).passthrough();
 
 const FavoriteAssetCharacterSchema = z.object({
   character: z.object({
-    id: z.string(),
-    type: z.enum(["character"]),
-    name: z.string(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    color: z.string().nullable(),
-    cover_image_url: z.string().nullable(),
-    character_identifier: z.string().nullable(),
-    parent_collection_id: z.string().nullable(),
-    is_favorited: z.boolean(),
+    id: z.string().optional(),
+    type: z.enum(["character"]).optional(),
+    name: z.string().optional(),
+    description: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+    cover_image_url: z.string().nullable().optional(),
+    character_identifier: z.string().nullable().optional(),
+    parent_collection_id: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
     asset_count: z.number().nullable().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-    reference_images: z.array(z.string()),
-  }).describe("Asset character"),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+    reference_images: z.array(z.string()).optional(),
+  }).optional().describe("Asset character"),
 }).passthrough();
 
 const UnfavoriteAssetCharacterSchema = z.object({
   character: z.object({
-    id: z.string(),
-    type: z.enum(["character"]),
-    name: z.string(),
-    description: z.string().nullable(),
-    icon: z.string().nullable(),
-    color: z.string().nullable(),
-    cover_image_url: z.string().nullable(),
-    character_identifier: z.string().nullable(),
-    parent_collection_id: z.string().nullable(),
-    is_favorited: z.boolean(),
+    id: z.string().optional(),
+    type: z.enum(["character"]).optional(),
+    name: z.string().optional(),
+    description: z.string().nullable().optional(),
+    icon: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+    cover_image_url: z.string().nullable().optional(),
+    character_identifier: z.string().nullable().optional(),
+    parent_collection_id: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
     asset_count: z.number().nullable().optional(),
-    created_at: z.string(),
-    updated_at: z.string(),
-    reference_images: z.array(z.string()),
-  }).describe("Asset character"),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+    reference_images: z.array(z.string()).optional(),
+  }).optional().describe("Asset character"),
+}).passthrough();
+
+const AssetEntitiesItemSchema = z.object({
+  id: z.string().optional().describe("Smart entity ID"),
+  type: z.enum(["character", "prop", "environment", "style", "scene"])
+    .optional().describe("Smart entity type"),
+  name: z.string().min(1).max(255).optional().describe("Entity display name"),
+  handle: z.string().optional().describe(
+    "Resolved @mention handle, without the leading @",
+  ),
+  description: z.string().nullable().optional().describe(
+    "Entity visual description",
+  ),
+  cover_image_url: z.string().nullable().optional().describe(
+    "Entity cover image URL",
+  ),
+  reference_images: z.array(z.string()).optional().describe(
+    "Defining reference image URLs",
+  ),
+  is_favorited: z.boolean().optional().describe(
+    "Whether the entity is favorited",
+  ),
+  created_at: z.string().optional().describe("Creation time in UTC"),
+  updated_at: z.string().optional().describe("Last update time in UTC"),
+}).passthrough();
+
+const ListAssetEntitiesSchema = z.object({
+  items: z.array(AssetEntitiesItemSchema),
+  truncated: z.boolean(),
+  fetchedAt: z.string(),
+  durationMs: z.number().optional().describe(
+    "Method execution duration in milliseconds",
+  ),
+  collectedBy: z.string().optional().describe(
+    "Extension that collected this data",
+  ),
+});
+
+const CreateAssetEntitySchema = z.object({
+  entity: z.object({
+    id: z.string().optional(),
+    type: z.enum(["character", "prop", "environment", "style", "scene"])
+      .optional(),
+    name: z.string().min(1).max(255).optional(),
+    handle: z.string().optional(),
+    description: z.string().nullable().optional(),
+    cover_image_url: z.string().nullable().optional(),
+    reference_images: z.array(z.string()).optional(),
+    is_favorited: z.boolean().optional(),
+    created_at: z.string().optional(),
+    updated_at: z.string().optional(),
+  }).optional().describe("Saved smart entity"),
 }).passthrough();
 
 const AssetTagsItemSchema = z.object({
-  id: z.string().describe("Tag ID"),
-  name: z.string().describe("Tag name"),
-  created_at: z.string().nullable().describe("Tag creation time"),
+  id: z.string().optional().describe("Tag ID"),
+  name: z.string().optional().describe("Tag name"),
+  created_at: z.string().nullable().optional().describe("Tag creation time"),
 }).passthrough();
 
 const ListAssetTagsSchema = z.object({
@@ -368,151 +448,156 @@ const ListAssetTagsSchema = z.object({
 
 const CreateAssetTagSchema = z.object({
   tag: z.object({
-    id: z.string(),
-    name: z.string(),
-    created_at: z.string().nullable(),
-  }).describe("Asset tag"),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    created_at: z.string().nullable().optional(),
+  }).optional().describe("Asset tag"),
 }).passthrough();
 
 const SetAssetTagsForAssetSchema = z.object({
-  id: z.string().describe("Tag ID"),
-  name: z.string().describe("Tag name"),
-  created_at: z.string().nullable().describe("Tag creation time"),
+  id: z.string().optional().describe("Tag ID"),
+  name: z.string().optional().describe("Tag name"),
+  created_at: z.string().nullable().optional().describe("Tag creation time"),
 }).passthrough();
 
 const UploadAssetSchema = z.object({
   asset: z.object({
-    asset_id: z.string().nullable(),
-    vector_id: z.string(),
-    request_id: z.string().nullable(),
-    url: z.string().nullable(),
-    type: z.enum(["image", "video", "audio", "3d"]),
-    title: z.string(),
-    endpoint: z.string().nullable(),
-    created_at: z.string().nullable(),
-    source: z.string().nullable(),
-    prompt: z.string().nullable(),
-    width: z.number().nullable(),
-    height: z.number().nullable(),
-    content_type: z.string().nullable(),
-    is_favorited: z.boolean(),
-    collection_ids: z.array(z.string()),
+    asset_id: z.string().nullable().optional(),
+    vector_id: z.string().optional(),
+    request_id: z.string().nullable().optional(),
+    url: z.string().nullable().optional(),
+    type: z.enum(["image", "video", "audio", "3d"]).optional(),
+    title: z.string().optional(),
+    endpoint: z.string().nullable().optional(),
+    created_at: z.string().nullable().optional(),
+    source: z.string().nullable().optional(),
+    prompt: z.string().nullable().optional(),
+    width: z.number().nullable().optional(),
+    height: z.number().nullable().optional(),
+    content_type: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
+    collection_ids: z.array(z.string()).optional(),
     tags: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      created_at: z.string().nullable(),
-    })),
-    similarity: z.number().nullable(),
-  }).describe("Asset details"),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      created_at: z.string().nullable().optional(),
+    })).optional(),
+    similarity: z.number().nullable().optional(),
+  }).optional().describe("Asset details"),
 }).passthrough();
 
 const GetAssetSchema = z.object({
   asset: z.object({
-    asset_id: z.string().nullable(),
-    vector_id: z.string(),
-    request_id: z.string().nullable(),
-    url: z.string().nullable(),
-    type: z.enum(["image", "video", "audio", "3d"]),
-    title: z.string(),
-    endpoint: z.string().nullable(),
-    created_at: z.string().nullable(),
-    source: z.string().nullable(),
-    prompt: z.string().nullable(),
-    width: z.number().nullable(),
-    height: z.number().nullable(),
-    content_type: z.string().nullable(),
-    is_favorited: z.boolean(),
-    collection_ids: z.array(z.string()),
+    asset_id: z.string().nullable().optional(),
+    vector_id: z.string().optional(),
+    request_id: z.string().nullable().optional(),
+    url: z.string().nullable().optional(),
+    type: z.enum(["image", "video", "audio", "3d"]).optional(),
+    title: z.string().optional(),
+    endpoint: z.string().nullable().optional(),
+    created_at: z.string().nullable().optional(),
+    source: z.string().nullable().optional(),
+    prompt: z.string().nullable().optional(),
+    width: z.number().nullable().optional(),
+    height: z.number().nullable().optional(),
+    content_type: z.string().nullable().optional(),
+    is_favorited: z.boolean().optional(),
+    collection_ids: z.array(z.string()).optional(),
     tags: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      created_at: z.string().nullable(),
-    })),
-    similarity: z.number().nullable(),
-  }).describe("Asset details"),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      created_at: z.string().nullable().optional(),
+    })).optional(),
+    similarity: z.number().nullable().optional(),
+  }).optional().describe("Asset details"),
 }).passthrough();
 
 const GetAssetLineageSchema = z.object({
   lineage: z.object({
-    focus: z.string(),
+    focus: z.string().optional(),
     nodes: z.array(z.union([
       z.object({
-        kind: z.enum(["asset"]),
-        id: z.string(),
-        output_key: z.string(),
-        url: z.string().nullable(),
-        type: z.enum(["image", "video", "audio", "text", "3d"]),
-        request_id: z.string(),
-        asset_id: z.string().nullable(),
-        tombstone: z.boolean(),
+        kind: z.enum(["asset"]).optional(),
+        id: z.string().optional(),
+        output_key: z.string().optional(),
+        url: z.string().nullable().optional(),
+        type: z.enum(["image", "video", "audio", "text", "3d"]).optional(),
+        request_id: z.string().optional(),
+        asset_id: z.string().nullable().optional(),
+        tombstone: z.boolean().optional(),
       }),
       z.object({
-        kind: z.enum(["external_input"]),
-        id: z.string(),
-        output_key: z.string(),
-        url: z.string().nullable(),
+        kind: z.enum(["external_input"]).optional(),
+        id: z.string().optional(),
+        output_key: z.string().optional(),
+        url: z.string().nullable().optional(),
       }),
       z.object({
-        kind: z.enum(["request"]),
-        id: z.string(),
-        request_id: z.string(),
-        endpoint: z.string().nullable(),
-        prompt: z.string().nullable(),
-        created_at: z.string().nullable(),
+        kind: z.enum(["request"]).optional(),
+        id: z.string().optional(),
+        request_id: z.string().optional(),
+        endpoint: z.string().nullable().optional(),
+        prompt: z.string().nullable().optional(),
+        created_at: z.string().nullable().optional(),
       }),
       z.object({
-        kind: z.enum(["entity"]),
-        id: z.string(),
-        entity_id: z.string(),
+        kind: z.enum(["entity"]).optional(),
+        id: z.string().optional(),
+        entity_id: z.string().optional(),
         entity_type: z.enum([
           "character",
           "prop",
           "environment",
           "style",
           "scene",
-        ]),
-        name: z.string().nullable(),
-        handle: z.string().nullable(),
-        tombstone: z.boolean(),
+        ]).optional(),
+        name: z.string().nullable().optional(),
+        handle: z.string().nullable().optional(),
+        tombstone: z.boolean().optional(),
       }),
-    ])),
+    ])).optional(),
     edges: z.array(z.object({
-      from: z.string(),
-      to: z.string(),
-      kind: z.enum(["input_to", "generated_by", "referenced_entity"]),
+      from: z.string().optional(),
+      to: z.string().optional(),
+      kind: z.enum(["input_to", "generated_by", "referenced_entity"])
+        .optional(),
       role: z.union([
         z.enum(["source", "content_ref", "mask", "control"]),
         z.unknown(),
         z.unknown(),
-      ]),
+      ]).optional(),
       entities: z.array(z.object({
-        entity_id: z.string(),
+        entity_id: z.string().optional(),
         entity_type: z.enum([
           "character",
           "prop",
           "environment",
           "style",
           "scene",
-        ]),
-        name: z.string().nullable(),
-        handle: z.string().nullable(),
+        ]).optional(),
+        name: z.string().nullable().optional(),
+        handle: z.string().nullable().optional(),
       })).optional(),
-    })),
-  }).describe("Derivation lineage graph of the asset"),
+    })).optional(),
+  }).optional().describe("Derivation lineage graph of the asset"),
 }).passthrough();
 
 const FavoriteAssetSchema = z.object({
-  is_favorited: z.boolean().describe("Whether the asset is now favorited"),
+  is_favorited: z.boolean().optional().describe(
+    "Whether the asset is now favorited",
+  ),
 }).passthrough();
 
 const UnfavoriteAssetSchema = z.object({
-  is_favorited: z.boolean().describe("Whether the asset is now favorited"),
+  is_favorited: z.boolean().optional().describe(
+    "Whether the asset is now favorited",
+  ),
 }).passthrough();
 
 const AssetTagsForAssetItemSchema = z.object({
-  id: z.string().describe("Tag ID"),
-  name: z.string().describe("Tag name"),
-  created_at: z.string().nullable().describe("Tag creation time"),
+  id: z.string().optional().describe("Tag ID"),
+  name: z.string().optional().describe("Tag name"),
+  created_at: z.string().nullable().optional().describe("Tag creation time"),
 }).passthrough();
 
 const ListAssetTagsForAssetSchema = z.object({
@@ -528,7 +613,7 @@ const ListAssetTagsForAssetSchema = z.object({
 });
 
 const AssignAssetTagSchema = z.object({
-  success: z.boolean().describe("Whether the operation succeeded"),
+  success: z.boolean().optional().describe("Whether the operation succeeded"),
 }).passthrough();
 
 // =============================================================================
@@ -538,7 +623,7 @@ const AssignAssetTagSchema = z.object({
 /** fal.ai Assets — media library, characters, collections, tags, uploads, favorites */
 export const model = {
   type: "@webframp/falai/assets",
-  version: "2026.09.15.1",
+  version: "2026.09.17.2",
   globalArguments: GlobalArgsSchema,
 
   upgrades: [
@@ -570,6 +655,16 @@ export const model = {
     {
       toVersion: "2026.09.15.1",
       description: "No schema changes — dependency/license maintenance bump",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+    {
+      toVersion: "2026.09.17.1",
+      description: "Regenerated from updated API spec; no migration required",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+    {
+      toVersion: "2026.09.17.2",
+      description: "Regenerated from updated API spec; no migration required",
       upgradeAttributes: (old: Record<string, unknown>) => old,
     },
   ],
@@ -650,6 +745,18 @@ export const model = {
     "unfavorite_asset_character": {
       description: "Unfavorite asset character",
       schema: UnfavoriteAssetCharacterSchema,
+      lifetime: "infinite" as const,
+      garbageCollection: 20,
+    },
+    "asset_entities": {
+      description: "List asset entities",
+      schema: ListAssetEntitiesSchema,
+      lifetime: "infinite" as const,
+      garbageCollection: 10,
+    },
+    "asset_entity": {
+      description: "Create asset entity",
+      schema: CreateAssetEntitySchema,
       lifetime: "infinite" as const,
       garbageCollection: 20,
     },
@@ -859,8 +966,9 @@ export const model = {
         const items = ((result as Record<string, unknown>)["collections"] ??
           []) as unknown[];
         // No cursor/offset in this response: a full page equal to the
-        // requested limit means more results may exist that we didn't fetch.
-        const limit = args.limit !== undefined ? Number(args.limit) : undefined;
+        // effective limit (explicit or the API's default) means more results
+        // may exist that we didn't fetch.
+        const limit = args.limit !== undefined ? Number(args.limit) : 50;
         const truncated = limit !== undefined && items.length === limit;
 
         const handle = await context.writeResource(
@@ -1535,8 +1643,9 @@ export const model = {
         const items = ((result as Record<string, unknown>)["characters"] ??
           []) as unknown[];
         // No cursor/offset in this response: a full page equal to the
-        // requested limit means more results may exist that we didn't fetch.
-        const limit = args.limit !== undefined ? Number(args.limit) : undefined;
+        // effective limit (explicit or the API's default) means more results
+        // may exist that we didn't fetch.
+        const limit = args.limit !== undefined ? Number(args.limit) : 50;
         const truncated = limit !== undefined && items.length === limit;
 
         const handle = await context.writeResource("asset_characters", "main", {
@@ -1805,6 +1914,256 @@ export const model = {
         );
         context.logger.info("Executed unfavorite_asset_character", {});
         return { dataHandles: [handle] };
+      },
+    },
+    list_asset_entities: {
+      description: "List asset entities",
+      arguments: z.object({
+        limit: z.number().int().min(1).max(100).optional().describe(
+          "Maximum number of entities to return",
+        ),
+        offset: z.number().int().min(0).nullable().optional().describe(
+          "Number of entities to skip",
+        ),
+        types: z.array(
+          z.enum(["character", "prop", "environment", "style", "scene"]),
+        ).nullable().optional().describe(
+          "Entity types to include, comma-separated. Omit to list all types.",
+        ),
+      }),
+      execute: async (
+        args: Record<string, unknown>,
+        context: {
+          globalArgs: Record<string, string>;
+          writeResource: (
+            spec: string,
+            instance: string,
+            data: unknown,
+          ) => Promise<{ name: string }>;
+          logger: {
+            info: (msg: string, props: Record<string, unknown>) => void;
+          };
+        },
+      ) => {
+        const { apiToken } = context.globalArgs;
+        const startMs = Date.now();
+        const params = new URLSearchParams();
+        const excludeKeys = new Set<string>([]);
+        for (const [k, v] of Object.entries(args)) {
+          if (v === undefined || v === null || excludeKeys.has(k)) continue;
+          if (Array.isArray(v)) {
+            for (const item of v) params.append(k, String(item));
+          } else {
+            params.append(k, String(v));
+          }
+        }
+        const qs = params.toString();
+        const url = qs ? `/assets/entities?${qs}` : `/assets/entities`;
+
+        const result = await falApi<Record<string, unknown>>(
+          apiToken,
+          "GET",
+          url,
+        );
+        const items =
+          ((result as Record<string, unknown>)["entities"] ?? []) as unknown[];
+        // No cursor/offset in this response: a full page equal to the
+        // effective limit (explicit or the API's default) means more results
+        // may exist that we didn't fetch.
+        const limit = args.limit !== undefined ? Number(args.limit) : 50;
+        const truncated = limit !== undefined && items.length === limit;
+
+        const handle = await context.writeResource("asset_entities", "main", {
+          items,
+          truncated,
+          fetchedAt: new Date().toISOString(),
+          durationMs: Date.now() - startMs,
+          collectedBy: EXTENSION_NAME,
+        });
+
+        context.logger.info("Found {count} asset_entities", {
+          count: items.length,
+        });
+        return { dataHandles: [handle] };
+      },
+    },
+    create_asset_entity: {
+      description: "Create asset entity",
+      arguments: z.object({
+        type: z.enum(["character", "prop", "environment", "style", "scene"])
+          .describe("Smart entity type"),
+        name: z.string().min(1).max(255).describe("Entity display name"),
+        handle: z.string().min(1).max(64).optional().describe(
+          "Optional @mention handle. Defaults from the name; must be unique across all e...",
+        ),
+        description: z.string().min(1).max(2000).nullable().optional().describe(
+          "Visual description. Required and non-empty for characters; optional for other...",
+        ),
+        reference_images: z.array(z.string().min(1)).describe(
+          "Defining reference images. Use saved asset IDs, request IDs, vector IDs, or f...",
+        ),
+        cover_image_url: z.string().nullable().optional().describe(
+          "Cover image URL. Must be one of the entity's reference images.",
+        ),
+      }),
+      execute: async (
+        args: Record<string, unknown>,
+        context: {
+          globalArgs: Record<string, string>;
+          writeResource: (
+            spec: string,
+            instance: string,
+            data: unknown,
+          ) => Promise<{ name: string }>;
+          logger: {
+            info: (msg: string, props: Record<string, unknown>) => void;
+          };
+        },
+      ) => {
+        const { apiToken } = context.globalArgs;
+
+        const result = await falApi<Record<string, unknown>>(
+          apiToken,
+          "POST",
+          `/assets/entities`,
+          args,
+        );
+
+        const id = sanitizeInstanceName(
+          String(
+            ((result as Record<string, unknown>)["entity"] as
+              | Record<string, unknown>
+              | undefined)?.["id"] ?? "created",
+          ),
+        );
+        const handle = await context.writeResource("asset_entity", id, result);
+        context.logger.info("Created asset_entity {id}", { id });
+        return { dataHandles: [handle] };
+      },
+    },
+    get_asset_entity: {
+      description: "Get asset entity",
+      arguments: z.object({
+        entity_id: z.string().describe("Smart entity ID"),
+      }),
+      execute: async (
+        args: Record<string, unknown>,
+        context: {
+          globalArgs: Record<string, string>;
+          writeResource: (
+            spec: string,
+            instance: string,
+            data: unknown,
+          ) => Promise<{ name: string }>;
+          logger: {
+            info: (msg: string, props: Record<string, unknown>) => void;
+          };
+        },
+      ) => {
+        const { apiToken } = context.globalArgs;
+
+        const result = await falApi<Record<string, unknown>>(
+          apiToken,
+          "GET",
+          `/assets/entities/${encodeURIComponent(String(args.entity_id))}`,
+        );
+
+        const handle = await context.writeResource(
+          "asset_entity",
+          sanitizeInstanceName(String(args.entity_id)),
+          result,
+        );
+        context.logger.info("Fetched asset_entity", {});
+        return { dataHandles: [handle] };
+      },
+    },
+    update_asset_entity: {
+      description: "Update asset entity",
+      arguments: z.object({
+        entity_id: z.string().describe("Smart entity ID"),
+        name: z.string().min(1).max(255).optional().describe(
+          "Entity display name",
+        ),
+        handle: z.string().min(1).max(64).optional().describe(
+          "Replacement @mention handle. Character handles cannot be changed.",
+        ),
+        description: z.string().min(1).max(2000).nullable().optional().describe(
+          "Replacement visual description; null clears it for non-character entities.",
+        ),
+        reference_images: z.array(z.string().min(1)).optional().describe(
+          "Replace the defining references with these saved asset IDs, request IDs, vect...",
+        ),
+        cover_image_url: z.string().nullable().optional().describe(
+          "Replacement cover image URL from the entity's reference images; null clears t...",
+        ),
+      }),
+      execute: async (
+        args: Record<string, unknown>,
+        context: {
+          globalArgs: Record<string, string>;
+          writeResource: (
+            spec: string,
+            instance: string,
+            data: unknown,
+          ) => Promise<{ name: string }>;
+          logger: {
+            info: (msg: string, props: Record<string, unknown>) => void;
+          };
+        },
+      ) => {
+        const { apiToken } = context.globalArgs;
+
+        const body: Record<string, unknown> = {};
+        const excludeKeys = new Set(["entity_id"]);
+        for (const [k, v] of Object.entries(args)) {
+          if (!excludeKeys.has(k)) body[k] = v;
+        }
+
+        const result = await falApi<Record<string, unknown>>(
+          apiToken,
+          "PATCH",
+          `/assets/entities/${encodeURIComponent(String(args.entity_id))}`,
+          body,
+        );
+
+        const handle = await context.writeResource(
+          "asset_entity",
+          sanitizeInstanceName(String(args.entity_id)),
+          result,
+        );
+        context.logger.info("Updated asset_entity", {});
+        return { dataHandles: [handle] };
+      },
+    },
+    delete_asset_entity: {
+      description: "Delete asset entity",
+      arguments: z.object({
+        entity_id: z.string().describe("Smart entity ID"),
+      }),
+      execute: async (
+        args: Record<string, unknown>,
+        context: {
+          globalArgs: Record<string, string>;
+          writeResource: (
+            spec: string,
+            instance: string,
+            data: unknown,
+          ) => Promise<{ name: string }>;
+          logger: {
+            info: (msg: string, props: Record<string, unknown>) => void;
+          };
+        },
+      ) => {
+        const { apiToken } = context.globalArgs;
+
+        await falApi(
+          apiToken,
+          "DELETE",
+          `/assets/entities/${encodeURIComponent(String(args.entity_id))}`,
+        );
+
+        context.logger.info("Deleted resource {id}", { id: args.entity_id });
+        return { dataHandles: [] };
       },
     },
     list_asset_tags: {

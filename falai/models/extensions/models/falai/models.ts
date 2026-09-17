@@ -22,47 +22,84 @@ const GlobalArgsSchema = z.object({
   ).optional(),
 });
 
+const GetModelInsightsItemSchema = z.object({
+  endpoint_id: z.string().optional().describe(
+    "Public model endpoint identifier.",
+  ),
+  display_name: z.string().optional().describe(
+    "Current public model display name.",
+  ),
+  category: z.string().optional().describe(
+    "Catalog category used for within-category tier comparisons.",
+  ),
+  relevance: z.number().nullable().optional().describe(
+    "Search relevance score, or null without a search match; not a quality score.",
+  ),
+  insights: z.array(z.object({
+    kind: z.string().optional(),
+    body: z.string().optional(),
+    source: z.string().optional(),
+    task: z.object({
+      name: z.string().optional(),
+      category: z.string().nullable().optional(),
+    }).nullable().optional(),
+    rank: z.number().nullable().optional(),
+  })).optional().describe("Published guidance for this model; may be empty."),
+}).passthrough();
+
+const GetModelInsightsSchema = z.object({
+  items: z.array(GetModelInsightsItemSchema),
+  truncated: z.boolean(),
+  fetchedAt: z.string(),
+  durationMs: z.number().optional().describe(
+    "Method execution duration in milliseconds",
+  ),
+  collectedBy: z.string().optional().describe(
+    "Extension that collected this data",
+  ),
+});
+
 const GetModelsItemSchema = z.object({
-  endpoint_id: z.string().describe(
+  endpoint_id: z.string().optional().describe(
     "Stable identifier used to call the model (e.g., 'fal-ai/wan/v2.2-a14b/text-to-video', 'fal-ai/min...",
   ),
   metadata: z.object({
-    display_name: z.string(),
-    category: z.string(),
-    description: z.string(),
-    status: z.enum(["active", "deprecated"]),
-    tags: z.array(z.string()),
-    updated_at: z.string(),
-    is_favorited: z.boolean().nullable(),
-    thumbnail_url: z.string(),
+    display_name: z.string().optional(),
+    category: z.string().optional(),
+    description: z.string().optional(),
+    status: z.enum(["active", "deprecated"]).optional(),
+    tags: z.array(z.string()).optional(),
+    updated_at: z.string().optional(),
+    is_favorited: z.boolean().nullable().optional(),
+    thumbnail_url: z.string().optional(),
     thumbnail_animated_url: z.string().optional(),
-    model_url: z.string(),
+    model_url: z.string().optional(),
     github_url: z.string().optional(),
     license_type: z.enum(["commercial", "research", "private"]).optional(),
-    date: z.string(),
+    date: z.string().optional(),
     group: z.object({
-      key: z.string(),
-      label: z.string(),
+      key: z.string().optional(),
+      label: z.string().optional(),
     }).optional(),
-    highlighted: z.boolean(),
+    highlighted: z.boolean().optional(),
     kind: z.enum(["inference", "training"]).optional(),
     training_endpoint_ids: z.array(z.string()).optional(),
     inference_endpoint_ids: z.array(z.string()).optional(),
     stream_url: z.string().optional(),
     duration_estimate: z.number().optional(),
-    pinned: z.boolean(),
+    pinned: z.boolean().optional(),
   }).optional().describe(
     "Model metadata (optional - may be absent for endpoints without registry entries)",
   ),
   openapi: z.union([
     z.object({
-      openapi: z.string(),
+      openapi: z.string().optional(),
     }),
     z.object({
       error: z.object({
-        code: z.string(),
-        message: z.string(),
-      }),
+        code: z.string().optional(),
+        message: z.string().optional(),
+      }).optional(),
     }),
   ]).optional().describe(
     "OpenAPI 3.0 specification or error (present when expand=openapi-3.0 is requested)",
@@ -71,9 +108,9 @@ const GetModelsItemSchema = z.object({
     z.enum(["ready", "pending"]),
     z.object({
       error: z.object({
-        code: z.string(),
-        message: z.string(),
-      }),
+        code: z.string().optional(),
+        message: z.string().optional(),
+      }).optional(),
     }),
   ]).optional().describe(
     "Enterprise readiness status (present when expand=enterprise_status is requested)",
@@ -93,16 +130,16 @@ const GetModelsSchema = z.object({
 });
 
 const GetPricingItemSchema = z.object({
-  endpoint_id: z.string().describe(
+  endpoint_id: z.string().optional().describe(
     "Endpoint identifier (e.g., 'fal-ai/wan/v2.2-a14b/text-to-video', 'fal-ai/minimax/video-01/image-t...",
   ),
-  unit_price: z.number().min(0).describe(
+  unit_price: z.number().min(0).optional().describe(
     "Base price per billing unit (often per generated output; may be per GPU-second for some models) i...",
   ),
-  unit: z.string().describe(
+  unit: z.string().optional().describe(
     "Unit of measurement for billing: 'image', 'video', or provider-specific GPU/compute unit when app...",
   ),
-  currency: z.string().min(3).max(3).describe(
+  currency: z.string().min(3).max(3).optional().describe(
     "Three-letter currency code (ISO 4217, e.g., 'USD')",
   ),
 }).passthrough();
@@ -120,39 +157,38 @@ const GetPricingSchema = z.object({
 });
 
 const EstimatePricingSchema = z.object({
-  estimate_type: z.enum(["historical_api_price", "unit_price"]).describe(
-    "The type of estimate that was performed",
-  ),
-  total_cost: z.number().min(0).describe(
+  estimate_type: z.enum(["historical_api_price", "unit_price"]).optional()
+    .describe("The type of estimate that was performed"),
+  total_cost: z.number().min(0).optional().describe(
     "Total estimated cost across all endpoints",
   ),
-  currency: z.string().min(3).max(3).describe(
+  currency: z.string().min(3).max(3).optional().describe(
     "Three-letter currency code (ISO 4217, e.g., 'USD')",
   ),
 }).passthrough();
 
 const GetUsageItemSchema = z.object({
-  bucket: z.string().describe(
+  bucket: z.string().optional().describe(
     "Time bucket timestamp in user's timezone with offset (ISO8601 datetime)",
   ),
   results: z.array(z.object({
-    endpoint_id: z.string(),
-    unit: z.string(),
-    quantity: z.number().min(0),
-    unit_price: z.number().min(0),
-    percent_discount: z.number().min(0).max(100).nullable(),
-    cost_subtotal: z.number().min(0),
-    cost_discount: z.number().min(0),
-    cost_total: z.number().min(0),
-    cost: z.number().min(0),
-    currency: z.string().min(3).max(3),
+    endpoint_id: z.string().optional(),
+    unit: z.string().optional(),
+    quantity: z.number().min(0).optional(),
+    unit_price: z.number().min(0).optional(),
+    percent_discount: z.number().min(0).max(100).nullable().optional(),
+    cost_subtotal: z.number().min(0).optional(),
+    cost_discount: z.number().min(0).optional(),
+    cost_total: z.number().min(0).optional(),
+    cost: z.number().min(0).optional(),
+    currency: z.string().min(3).max(3).optional(),
     auth_method: z.string().optional(),
     auth_method_structured: z.object({
-      detail: z.string(),
+      detail: z.string().optional(),
       api_key_id: z.string().optional(),
       login_username: z.string().optional(),
     }).optional(),
-  })).describe("Usage records for this time bucket"),
+  })).optional().describe("Usage records for this time bucket"),
 }).passthrough();
 
 const GetUsageSchema = z.object({
@@ -168,11 +204,11 @@ const GetUsageSchema = z.object({
 });
 
 const GetAnalyticsItemSchema = z.object({
-  bucket: z.string().describe(
+  bucket: z.string().optional().describe(
     "Time bucket timestamp in user's timezone with offset (ISO8601 datetime)",
   ),
   results: z.array(z.object({
-    endpoint_id: z.string(),
+    endpoint_id: z.string().optional(),
     request_count: z.number().int().min(0).optional(),
     success_count: z.number().int().min(0).optional(),
     user_error_count: z.number().int().min(0).optional(),
@@ -197,7 +233,7 @@ const GetAnalyticsItemSchema = z.object({
     p75_cold_boot_duration: z.number().min(0).optional(),
     p90_cold_boot_duration: z.number().min(0).optional(),
     total_billable_duration: z.number().min(0).optional(),
-  })).describe("Analytics records for this time bucket"),
+  })).optional().describe("Analytics records for this time bucket"),
 }).passthrough();
 
 const GetAnalyticsSchema = z.object({
@@ -213,37 +249,47 @@ const GetAnalyticsSchema = z.object({
 });
 
 const GetBillingEventsItemSchema = z.object({
-  request_id: z.string().describe("Unique identifier for the request"),
-  endpoint_id: z.string().describe(
+  request_id: z.string().optional().describe(
+    "Unique identifier for the request",
+  ),
+  endpoint_id: z.string().optional().describe(
     "Endpoint identifier that was used (e.g., 'fal-ai/flux/dev')",
   ),
-  timestamp: z.string().describe("Request timestamp in ISO8601 format"),
-  output_units: z.number().min(0).nullable().describe(
-    "Custom billing units for this request",
+  timestamp: z.string().optional().describe(
+    "Request timestamp in ISO8601 format",
   ),
-  unit_price: z.number().min(0).nullable().describe(
-    "Unit price for this request",
+  quantity: z.number().min(0).nullable().optional().describe(
+    "Billable units consumed, in the unit named by `unit`. Same value as the deprecated `output_units`.",
   ),
-  percent_discount: z.number().nullable().describe(
+  output_units: z.number().min(0).nullable().optional().describe(
+    "Deprecated: use quantity. Same value as quantity.",
+  ),
+  unit: z.string().nullable().optional().describe(
+    "The billing unit these units are counted in (e.g. 'image', 'second', 'megapixel'). Null when the ...",
+  ),
+  unit_price: z.number().min(0).nullable().optional().describe(
+    "Per-unit price this line is measured against: the list rate when a discount is reported in percen...",
+  ),
+  percent_discount: z.number().nullable().optional().describe(
     "Discount percentage applied to this request (e.g., 10 = 10% discount)",
   ),
-  cost_subtotal: z.number().min(0).describe(
+  cost_subtotal: z.number().min(0).optional().describe(
     "Cost before discounts in USD (output_units × unit_price)",
   ),
-  cost_discount: z.number().min(0).describe(
+  cost_discount: z.number().min(0).optional().describe(
     "Discount applied to this request in USD (cost_subtotal − cost_total)",
   ),
-  cost_total: z.number().min(0).describe(
+  cost_total: z.number().min(0).optional().describe(
     "Amount charged after discounts in USD (cost_subtotal − cost_discount)",
   ),
-  cost_estimate_nano_usd: z.number().min(0).describe(
-    "Amount charged after discounts in nano USD — the same charge as cost_total (1 USD = 1,000,000,000...",
+  cost_estimate_nano_usd: z.number().min(0).optional().describe(
+    "Amount charged after discounts in nano USD. The precision-preserving representation of cost_total...",
   ),
   auth_method: z.string().optional().describe(
     "Authentication method label (e.g., 'Key 1', 'API Key', 'User token'). Only populated when 'auth_m...",
   ),
   auth_method_structured: z.object({
-    detail: z.string(),
+    detail: z.string().optional(),
     api_key_id: z.string().optional(),
     login_username: z.string().optional(),
   }).optional().describe(
@@ -264,12 +310,18 @@ const GetBillingEventsSchema = z.object({
 });
 
 const RequestsByEndpointItemSchema = z.object({
-  request_id: z.string().describe("Unique identifier for the request"),
-  endpoint_id: z.string().describe(
+  request_id: z.string().optional().describe(
+    "Unique identifier for the request",
+  ),
+  endpoint_id: z.string().optional().describe(
     "Endpoint that was executed for this request",
   ),
-  started_at: z.string().describe("Time when request processing started"),
-  sent_at: z.string().describe("Time when request was sent to the backend"),
+  started_at: z.string().optional().describe(
+    "Time when request processing started",
+  ),
+  sent_at: z.string().optional().describe(
+    "Time when request was sent to the backend",
+  ),
   ended_at: z.string().nullable().optional().describe(
     "Time when request finished processing",
   ),
@@ -298,12 +350,18 @@ const ListRequestsByEndpointSchema = z.object({
 });
 
 const SearchRequestsItemSchema = z.object({
-  request_id: z.string().describe("Unique identifier for the request"),
-  endpoint_id: z.string().describe(
+  request_id: z.string().optional().describe(
+    "Unique identifier for the request",
+  ),
+  endpoint_id: z.string().optional().describe(
     "Endpoint that was executed for this request",
   ),
-  started_at: z.string().describe("Time when request processing started"),
-  sent_at: z.string().describe("Time when request was sent to the backend"),
+  started_at: z.string().optional().describe(
+    "Time when request processing started",
+  ),
+  sent_at: z.string().optional().describe(
+    "Time when request was sent to the backend",
+  ),
   ended_at: z.string().nullable().optional().describe(
     "Time when request finished processing",
   ),
@@ -341,7 +399,7 @@ const SearchRequestsSchema = z.object({
 /** fal.ai Models — model catalog, pricing, analytics, usage, billing events, request search */
 export const model = {
   type: "@webframp/falai/models",
-  version: "2026.09.15.1",
+  version: "2026.09.17.2",
   globalArguments: GlobalArgsSchema,
 
   upgrades: [
@@ -375,9 +433,25 @@ export const model = {
       description: "No schema changes — dependency/license maintenance bump",
       upgradeAttributes: (old: Record<string, unknown>) => old,
     },
+    {
+      toVersion: "2026.09.17.1",
+      description: "Regenerated from updated API spec; no migration required",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+    {
+      toVersion: "2026.09.17.2",
+      description: "Regenerated from updated API spec; no migration required",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
   ],
 
   resources: {
+    "get_model_insights": {
+      description: "Published model insights and weekly statistics (beta)",
+      schema: GetModelInsightsSchema,
+      lifetime: "infinite" as const,
+      garbageCollection: 10,
+    },
     "get_models": {
       description: "Model search",
       schema: GetModelsSchema,
@@ -429,6 +503,88 @@ export const model = {
   },
 
   methods: {
+    get_model_insights: {
+      description: "Published model insights and weekly statistics (beta)",
+      arguments: z.object({
+        endpoint_id: z.union([
+          z.string().min(3).max(200).regex(
+            new RegExp("^[a-zA-Z0-9_.-]+(?:\\/[a-zA-Z0-9_.-]+)+$"),
+          ),
+          z.array(
+            z.string().min(3).max(200).regex(
+              new RegExp("^[a-zA-Z0-9_.-]+(?:\\/[a-zA-Z0-9_.-]+)+$"),
+            ),
+          ),
+        ]).optional().describe(
+          "Model endpoint IDs to inspect. Repeat the parameter for multiple models; provide endpoint_id or q.",
+        ),
+        q: z.string().min(1).max(1000).optional().describe(
+          "Task description used to search published model guidance; provide q or endpoint_id.",
+        ),
+        limit: z.number().int().min(1).max(20).optional().describe(
+          "Maximum number of account-visible models to return.",
+        ),
+      }),
+      execute: async (
+        args: Record<string, unknown>,
+        context: {
+          globalArgs: Record<string, string>;
+          writeResource: (
+            spec: string,
+            instance: string,
+            data: unknown,
+          ) => Promise<{ name: string }>;
+          logger: {
+            info: (msg: string, props: Record<string, unknown>) => void;
+          };
+        },
+      ) => {
+        const { apiToken } = context.globalArgs;
+        const startMs = Date.now();
+        const params = new URLSearchParams();
+        const excludeKeys = new Set<string>([]);
+        for (const [k, v] of Object.entries(args)) {
+          if (v === undefined || v === null || excludeKeys.has(k)) continue;
+          if (Array.isArray(v)) {
+            for (const item of v) params.append(k, String(item));
+          } else {
+            params.append(k, String(v));
+          }
+        }
+        const qs = params.toString();
+        const url = qs ? `/models/insights?${qs}` : `/models/insights`;
+
+        const result = await falApi<Record<string, unknown>>(
+          apiToken,
+          "GET",
+          url,
+        );
+        const items =
+          ((result as Record<string, unknown>)["models"] ?? []) as unknown[];
+        // No cursor/offset in this response: a full page equal to the
+        // effective limit (explicit or the API's default) means more results
+        // may exist that we didn't fetch.
+        const limit = args.limit !== undefined ? Number(args.limit) : 5;
+        const truncated = limit !== undefined && items.length === limit;
+
+        const handle = await context.writeResource(
+          "get_model_insights",
+          "main",
+          {
+            items,
+            truncated,
+            fetchedAt: new Date().toISOString(),
+            durationMs: Date.now() - startMs,
+            collectedBy: EXTENSION_NAME,
+          },
+        );
+
+        context.logger.info("Found {count} get_model_insights", {
+          count: items.length,
+        });
+        return { dataHandles: [handle] };
+      },
+    },
     get_models: {
       description: "Model search",
       arguments: z.object({

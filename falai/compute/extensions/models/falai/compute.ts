@@ -23,10 +23,11 @@ const GlobalArgsSchema = z.object({
 });
 
 const ComputeInstancesItemSchema = z.object({
-  id: z.string().describe("Unique identifier for the compute instance"),
-  instance_type: z.enum(["gpu_8x_h100_sxm5", "gpu_1x_h100_sxm5"]).describe(
-    "Type of compute instance (GPU configuration)",
+  id: z.string().optional().describe(
+    "Unique identifier for the compute instance",
   ),
+  instance_type: z.enum(["gpu_8x_h100_sxm5", "gpu_1x_h100_sxm5"]).optional()
+    .describe("Type of compute instance (GPU configuration)"),
   region: z.enum([
     "us-west",
     "us-central",
@@ -34,7 +35,7 @@ const ComputeInstancesItemSchema = z.object({
     "eu-north",
     "eu-west",
     "other",
-  ]).describe("Geographical region where the instance is located"),
+  ]).optional().describe("Geographical region where the instance is located"),
   sector: z.enum(["sector_1", "sector_2", "sector_3"]).optional().describe(
     "Sector identifier for instance placement within the region (if applicable)",
   ),
@@ -48,7 +49,7 @@ const ComputeInstancesItemSchema = z.object({
     "provisioning",
     "stopped",
     "unknown",
-  ]).describe("Current operational status of the instance"),
+  ]).optional().describe("Current operational status of the instance"),
   creator_user_nickname: z.string().optional().describe(
     "Nickname of the user who created this instance",
   ),
@@ -66,11 +67,12 @@ const ListComputeInstancesSchema = z.object({
   ),
 });
 
-const CreateComputeInstanceSchema = z.object({
-  id: z.string().describe("Unique identifier for the compute instance"),
-  instance_type: z.enum(["gpu_8x_h100_sxm5", "gpu_1x_h100_sxm5"]).describe(
-    "Type of compute instance (GPU configuration)",
+const GetComputeInstanceSchema = z.object({
+  id: z.string().optional().describe(
+    "Unique identifier for the compute instance",
   ),
+  instance_type: z.enum(["gpu_8x_h100_sxm5", "gpu_1x_h100_sxm5"]).optional()
+    .describe("Type of compute instance (GPU configuration)"),
   region: z.enum([
     "us-west",
     "us-central",
@@ -78,7 +80,7 @@ const CreateComputeInstanceSchema = z.object({
     "eu-north",
     "eu-west",
     "other",
-  ]).describe("Geographical region where the instance is located"),
+  ]).optional().describe("Geographical region where the instance is located"),
   sector: z.enum(["sector_1", "sector_2", "sector_3"]).optional().describe(
     "Sector identifier for instance placement within the region (if applicable)",
   ),
@@ -92,7 +94,7 @@ const CreateComputeInstanceSchema = z.object({
     "provisioning",
     "stopped",
     "unknown",
-  ]).describe("Current operational status of the instance"),
+  ]).optional().describe("Current operational status of the instance"),
   creator_user_nickname: z.string().optional().describe(
     "Nickname of the user who created this instance",
   ),
@@ -105,7 +107,7 @@ const CreateComputeInstanceSchema = z.object({
 /** fal.ai Compute — dedicated GPU compute instances */
 export const model = {
   type: "@webframp/falai/compute",
-  version: "2026.09.15.1",
+  version: "2026.09.17.2",
   globalArguments: GlobalArgsSchema,
 
   upgrades: [
@@ -139,6 +141,17 @@ export const model = {
       description: "No schema changes — dependency/license maintenance bump",
       upgradeAttributes: (old: Record<string, unknown>) => old,
     },
+    {
+      toVersion: "2026.09.17.1",
+      description:
+        "BREAKING: fal.ai removed create_compute_instance (POST /compute/instances) upstream; the method no longer exists. Added get_compute_instance. No data migration applies — existing create_compute_instance resource data is retained as-is.",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
+    {
+      toVersion: "2026.09.17.2",
+      description: "Regenerated from updated API spec; no migration required",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
   ],
 
   resources: {
@@ -149,8 +162,8 @@ export const model = {
       garbageCollection: 10,
     },
     "compute_instance": {
-      description: "Create Compute Instance",
-      schema: CreateComputeInstanceSchema,
+      description: "Get Compute Instance",
+      schema: GetComputeInstanceSchema,
       lifetime: "infinite" as const,
       garbageCollection: 20,
     },
@@ -228,54 +241,6 @@ export const model = {
         context.logger.info("Found {count} compute_instances", {
           count: results.length,
         });
-        return { dataHandles: [handle] };
-      },
-    },
-    create_compute_instance: {
-      description: "Create Compute Instance",
-      arguments: z.object({
-        instance_type: z.enum(["gpu_8x_h100_sxm5", "gpu_1x_h100_sxm5"])
-          .describe("Type of compute instance to create"),
-        ssh_key: z.string().min(1).describe(
-          "SSH public key for accessing the instance (e.g., 'ssh-rsa AAAAB3...')",
-        ),
-        sector: z.enum(["sector_1", "sector_2", "sector_3"]).optional()
-          .describe(
-            "Sector for InfiniBand configuration (only valid with gpu_8x_h100_sxm5)",
-          ),
-      }),
-      execute: async (
-        args: Record<string, unknown>,
-        context: {
-          globalArgs: Record<string, string>;
-          writeResource: (
-            spec: string,
-            instance: string,
-            data: unknown,
-          ) => Promise<{ name: string }>;
-          logger: {
-            info: (msg: string, props: Record<string, unknown>) => void;
-          };
-        },
-      ) => {
-        const { apiToken } = context.globalArgs;
-
-        const result = await falApi<Record<string, unknown>>(
-          apiToken,
-          "POST",
-          `/compute/instances`,
-          args,
-        );
-
-        const id = sanitizeInstanceName(
-          String((result as Record<string, unknown>)["id"] ?? "created"),
-        );
-        const handle = await context.writeResource(
-          "compute_instance",
-          id,
-          result,
-        );
-        context.logger.info("Created compute_instance {id}", { id });
         return { dataHandles: [handle] };
       },
     },

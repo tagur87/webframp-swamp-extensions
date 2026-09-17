@@ -1,10 +1,6 @@
-## 2026.09.15.1
+## 2026.09.17.2
 
-**Changed:** Bump zod 4.4.3 → 4.6.5
-
-## 2026.08.28.2
-
-Hardened codegen: instance names sanitized against path traversal; 429
-rate-limit retry with Retry-After; string schema patterns emit regex validation;
-output schemas passthrough unknown fields; apiToken now optional and
-vault-wireable with CLOUDFLARE_API_TOKEN env fallback.
+No changes to this extension's methods. Regenerated to refresh the shared
+_lib/api.ts helper library after PR #427 review fixes to cfApiPaginatedCursor
+(used by r2, kv, durable-objects, and workers-ai, but emitted into every
+extension's api.ts since it's part of the shared template).

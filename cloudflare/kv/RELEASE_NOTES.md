@@ -1,10 +1,11 @@
-## 2026.09.15.1
+## 2026.09.17.2
 
-**Changed:** Bump zod 4.4.3 → 4.6.5
-
-## 2026.08.28.2
-
-Hardened codegen: instance names sanitized against path traversal; 429
-rate-limit retry with Retry-After; string schema patterns emit regex validation;
-output schemas passthrough unknown fields; apiToken now optional and
-vault-wireable with CLOUDFLARE_API_TOKEN env fallback.
+Adversarial review on PR #427 found: (1) a user-supplied cursor argument was
+silently discarded (excluded from the params passed to cfApiPaginatedCursor, so
+resuming from a prior truncated result always re-fetched from page one instead);
+(2) cfApiPaginatedCursor claimed truncated: false when a response had no
+result_info at all, which could silently under-report results on endpoints that
+omit that field. Both are fixed: a caller-supplied cursor now flows through as
+the starting point, and a missing result_info now marks truncated: true instead
+of claiming completeness. Also fixed a trailing '?' on URLs with no query
+params.

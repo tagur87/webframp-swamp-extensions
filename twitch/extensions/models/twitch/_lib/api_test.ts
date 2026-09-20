@@ -171,9 +171,42 @@ Deno.test({
       );
 
       assertEquals(requestCount, 2);
-      assertEquals(results.length, 3);
-      assertEquals(results[0].id, "1");
-      assertEquals(results[2].id, "3");
+      assertEquals(results.data.length, 3);
+      assertEquals(results.data[0].id, "1");
+      assertEquals(results.data[2].id, "3");
+    } finally {
+      uninstall();
+      await server.shutdown();
+    }
+  },
+});
+
+Deno.test({
+  name:
+    "helixApiPaginated: marks truncated when a single page overshoots the cap",
+  sanitizeResources: false,
+  fn: async () => {
+    const OVERSHOOT = 50_050;
+
+    const { url, server } = startMockTwitchServer(() => {
+      return Response.json({
+        data: Array.from({ length: OVERSHOOT }, (_, i) => ({ id: `${i}` })),
+        pagination: {},
+      }, {
+        headers: { "Ratelimit-Remaining": "100" },
+      });
+    });
+    const uninstall = installFetchMock(url);
+
+    try {
+      const creds = makeCreds();
+      const results = await helixApiPaginated<{ id: string }>(
+        creds,
+        "/moderation/moderators?broadcaster_id=999",
+      );
+
+      assertEquals(results.data.length, 50_000);
+      assertEquals(results.truncated, true);
     } finally {
       uninstall();
       await server.shutdown();

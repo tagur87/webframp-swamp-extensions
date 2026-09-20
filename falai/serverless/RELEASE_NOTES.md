@@ -1,5 +1,4 @@
-## 2026.09.17.2
+## 2026.09.18.1
 
-Add net_unit_price field to the billing/usage schema, generated as optional so
-reading a resource stored under an older model version no longer throws Required
-now that the live API adds this field.
+**Upgrade note:** Normalized `npm:zod` dependency version to 4.6.5 across the
+repo. No behavioral changes in this extension.

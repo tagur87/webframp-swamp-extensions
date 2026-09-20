@@ -98,7 +98,7 @@ Deno.test({
     try {
       const { context, getWrittenResources } = makeContext();
       const result = await model.methods.attention.execute(
-        { chatLimit: 50, mode: "unread_only" },
+        { chatLimit: 50, mode: "unread_only", since: "2026-09-17T00:00:00Z" },
         context as unknown as Parameters<
           typeof model.methods.attention.execute
         >[1],

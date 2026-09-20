@@ -115,6 +115,9 @@ const ResourceListSchema = z.object({
       "CognitiveServices account kind (OpenAI or AIServices)",
     ),
   })).describe("Discovered OpenAI/AIServices resources"),
+  truncated: z.boolean().optional().describe(
+    "True if any subscription's resource listing was truncated, meaning results may be incomplete",
+  ),
   fetchedAt: z.string().optional().describe(
     "ISO 8601 timestamp when data was fetched",
   ),
@@ -240,8 +243,9 @@ async function listAiResources(
   fetchFn: typeof fetch,
   logger?: {
     debug: (msg: string, props: Record<string, unknown>) => void;
+    warn: (msg: string, props: Record<string, unknown>) => void;
   },
-): Promise<AiResource[]> {
+): Promise<{ resources: AiResource[]; truncated: boolean }> {
   const filter = encodeURIComponent(
     "kind eq 'OpenAI' or kind eq 'AIServices'",
   );
@@ -253,12 +257,19 @@ async function listAiResources(
   const resultsById = new Map<string, AiResource>();
   const MAX_PAGES = 500;
   let pageCount = 0;
+  let truncated = false;
 
   while (url) {
     if (++pageCount > MAX_PAGES) {
-      throw new Error(
-        `ARM resource list for ${subscription} exceeded ${MAX_PAGES} pages; aborting`,
+      logger?.warn(
+        "ARM resource list exceeded max pages; aborting pagination",
+        {
+          subscription,
+          maxPages: MAX_PAGES,
+        },
       );
+      truncated = true;
+      break;
     }
     const resp = await fetchWithRetry(url, {
       headers: { Authorization: `Bearer ${token}` },
@@ -319,7 +330,7 @@ async function listAiResources(
     });
   }
 
-  return filtered;
+  return { resources: filtered, truncated };
 }
 
 /** Extract resource group name from an ARM resource ID. */
@@ -539,7 +550,7 @@ async function getTokenMetrics(
 /** Azure OpenAI/AI Services token usage monitoring model. */
 export const model = {
   type: "@webframp/azure/openai-usage",
-  version: "2026.09.15.1",
+  version: "2026.09.18.1",
   globalArguments: GlobalArgsSchema,
   upgrades: [
     {
@@ -616,6 +627,12 @@ export const model = {
       description: "No schema changes — dependency/license maintenance bump",
       upgradeAttributes: (old: Record<string, unknown>) => old,
     },
+    {
+      toVersion: "2026.09.18.1",
+      description:
+        "Normalized zod dependency version and applied pagination truncation fixes where applicable",
+      upgradeAttributes: (old: Record<string, unknown>) => old,
+    },
   ],
 
   resources: {
@@ -684,14 +701,18 @@ export const model = {
 
         for (const subscription of context.globalArgs.subscriptions) {
           try {
-            const aiResources = await listAiResources(
+            const aiResourceResult = await listAiResources(
               subscription,
               token,
               fetchFn,
               context.logger,
             );
 
-            for (const res of aiResources) {
+            if (aiResourceResult.truncated) {
+              anyFailed = true;
+            }
+
+            for (const res of aiResourceResult.resources) {
               context.logger.debug("Scanning resource", {
                 subscription,
                 resourceGroup: res.resourceGroup,
@@ -855,19 +876,27 @@ export const model = {
         );
 
         const allResources: Array<AiResource & { subscription: string }> = [];
+        let anyTruncated = false;
 
         for (const subscription of context.globalArgs.subscriptions) {
           try {
-            const resources = await listAiResources(
+            const aiResourceResult = await listAiResources(
               subscription,
               token,
               fetchFn,
               context.logger,
             );
-            for (const r of resources) {
+            if (aiResourceResult.truncated) {
+              anyTruncated = true;
+              context.logger.warn("Resource list may be incomplete", {
+                subscription,
+              });
+            }
+            for (const r of aiResourceResult.resources) {
               allResources.push({ ...r, subscription });
             }
           } catch (err) {
+            anyTruncated = true;
             context.logger.warn("Failed to list resources", {
               subscription,
               error: err instanceof Error
@@ -886,6 +915,7 @@ export const model = {
             location: r.location,
             kind: r.kind,
           })),
+          truncated: anyTruncated,
         };
 
         const handle = await context.writeResource(

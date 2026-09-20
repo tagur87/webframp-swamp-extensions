@@ -1,4 +1,4 @@
-## 2026.09.15.2
+## 2026.09.18.1
 
-**Added:** `downtime` as a valid `policy_type` for monitor configuration
-policies, alongside the existing `tag` type.
+**Upgrade note:** Normalized `npm:zod` dependency version to 4.6.5 across the
+repo. No behavioral changes in this extension.

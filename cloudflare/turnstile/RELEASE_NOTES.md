@@ -1,6 +1,4 @@
-## 2026.09.17.2
+## 2026.09.18.1
 
-No changes to this extension's methods. Regenerated to refresh the shared
-_lib/api.ts helper library after PR #427 review fixes to cfApiPaginatedCursor
-(used by r2, kv, durable-objects, and workers-ai, but emitted into every
-extension's api.ts since it's part of the shared template).
+**Upgrade note:** Normalized `npm:zod` dependency version to 4.6.5 across the
+repo. No behavioral changes in this extension.

@@ -1661,3 +1661,698 @@ Deno.test("FIX5: AWS entries carry a kind discriminant (utilization vs pending)"
   assertEquals(util.entries[0].kind, "utilization");
   assertEquals(pending.entries[0].kind, "pending");
 });
+
+// --- New signal sources (2026-09 expansion) ---
+
+const SECURITYHUB = "@webframp/aws/securityhub-findings";
+const COST = "@webframp/aws/cost-explorer";
+const ECR = "@webframp/aws/ecr-observation";
+const KIRO = "@webframp/aws/kiro-usage";
+const LOGS = "@webframp/aws/logs";
+const JEV = "@swamp/typesafe-ai";
+
+Deno.test("securityhub diff_findings: new criticals -> critical delta signal", async () => {
+  const steps = [
+    makeStep(SECURITYHUB, "sh-findings", "diff_findings", ["diff-abc"]),
+  ];
+  const artifacts = [
+    makeArtifact(SECURITYHUB, "sh-findings", "diff-abc", {
+      newFindings: [
+        { severity: "CRITICAL", title: "x" },
+        { severity: "HIGH", title: "y" },
+      ],
+      resolvedFindings: [{ severity: "LOW", title: "z" }],
+      newCount: 2,
+      resolvedCount: 1,
+      truncated: false,
+      currentSnapshot: [{ id: "big", arn: "arn:...", description: "huge" }],
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "findings-delta");
+  assertEquals(sig.severity, "critical");
+  assertStringIncludes(sig.detail, "1 CRITICAL");
+  assertStringIncludes(sig.detail, "1 resolved");
+  // The bulky currentSnapshot must not blow up the report or leak into detail.
+  assertEquals(sig.detail.includes("arn:"), false);
+});
+
+Deno.test("securityhub account_map: recognized but emits no signal, no note", async () => {
+  const steps = [
+    makeStep(SECURITYHUB, "sh-findings", "resolve_accounts", ["accts"]),
+  ];
+  const artifacts = [
+    makeArtifact(SECURITYHUB, "sh-findings", "accts", {
+      accounts: [
+        { id: "123456789012", name: "jw-cd-cicd-01", status: "ACTIVE" },
+      ],
+      count: 1,
+      truncated: false,
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  // No security-hub signal from an account map.
+  assertEquals(
+    (json.ops as Any[]).some((o) => o.source === "security-hub"),
+    false,
+  );
+  // And crucially it must NOT be flagged as an unrecognized shape.
+  assertEquals(
+    (json.notes as string[]).some((n) => n.includes("no recognizable")),
+    false,
+  );
+  // No account id should appear anywhere in the rendered markdown.
+  assertEquals(result.markdown.includes("123456789012"), false);
+});
+
+Deno.test("cost comparison: material rise -> warn spend-delta with driver", async () => {
+  const steps = [
+    makeStep(COST, "aws-costs", "get_cost_comparison", ["comparison-7d"]),
+  ];
+  const artifacts = [
+    makeArtifact(COST, "aws-costs", "comparison-7d", {
+      region: "us-east-1",
+      queryType: "cost_comparison",
+      data: {
+        currentPeriod: { total: 120000 },
+        previousPeriod: { total: 90000 },
+        totalDelta: 30000,
+        totalDeltaPercent: 33.3,
+        services: [
+          { service: "Amazon EKS", delta: 25000, deltaPercent: 140 },
+          { service: "Amazon S3", delta: -500, deltaPercent: -3 },
+        ],
+      },
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "spend-delta");
+  assertEquals(sig.severity, "warn");
+  assertStringIncludes(sig.detail, "+33.3%");
+  assertStringIncludes(sig.detail, "Amazon EKS");
+});
+
+Deno.test("cost comparison: flat spend -> ok, no driver named", async () => {
+  const steps = [
+    makeStep(COST, "aws-costs", "get_cost_comparison", ["comparison-7d"]),
+  ];
+  const artifacts = [
+    makeArtifact(COST, "aws-costs", "comparison-7d", {
+      region: "us-east-1",
+      queryType: "cost_comparison",
+      data: {
+        currentPeriod: { total: 91000 },
+        previousPeriod: { total: 90000 },
+        totalDelta: 1000,
+        totalDeltaPercent: 1.1,
+        services: [{ service: "Amazon EKS", delta: 1000, deltaPercent: 1 }],
+      },
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "spend-delta");
+  assertEquals(sig.severity, "ok");
+  assertEquals(sig.detail.includes("top rise"), false);
+});
+
+Deno.test("cost top_cost_drivers -> info drivers signal names largest", async () => {
+  const steps = [
+    makeStep(COST, "aws-costs", "get_top_cost_drivers", ["top-drivers-7d"]),
+  ];
+  const artifacts = [
+    makeArtifact(COST, "aws-costs", "top-drivers-7d", {
+      region: "us-east-1",
+      queryType: "top_cost_drivers",
+      data: [
+        { service: "Claude Enterprise", usageType: "MP:usage", amount: 7500 },
+        { service: "AmazonCloudWatch", usageType: "DataProc", amount: 4500 },
+      ],
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "drivers");
+  assertEquals(sig.severity, "info");
+  assertStringIncludes(sig.detail, "Claude Enterprise");
+});
+
+Deno.test("ecr survey: naming/lifecycle gaps -> warn hygiene signal", async () => {
+  const steps = [makeStep(ECR, "ecr-survey", "survey", ["fleet"])];
+  const artifacts = [
+    makeArtifact(ECR, "ecr-survey", "fleet", {
+      generatedAt: hoursAgo(2),
+      primaryRegion: "us-east-1",
+      profilesChecked: 55,
+      failedProfiles: [],
+      accounts: [{ accountId: "123456789012", repos: 5 }],
+      aggregate: {
+        totalRepos: 2361,
+        standardRepos: 2036,
+        exemptRepos: 325,
+        namingLandmines: 3,
+        reposWithoutLifecycle: 42,
+        accountsWithStrayRegionRepos: 7,
+        accountsWithReplication: 2,
+      },
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.source === "ecr");
+  assertEquals(sig.severity, "warn");
+  assertStringIncludes(sig.detail, "3 naming violation(s)");
+  assertStringIncludes(sig.detail, "42 without lifecycle");
+  // Per-account IDs must never leak into the rendered output.
+  assertEquals(result.markdown.includes("123456789012"), false);
+});
+
+Deno.test("ecr survey: clean fleet -> ok; failed profiles -> degraded", async () => {
+  const steps = [makeStep(ECR, "ecr-survey", "survey", ["fleet"])];
+  const artifacts = [
+    makeArtifact(ECR, "ecr-survey", "fleet", {
+      generatedAt: hoursAgo(2),
+      failedProfiles: [{ profile: "acct-x/ReadOnlyPlus", error: "boom" }],
+      accounts: [],
+      aggregate: {
+        totalRepos: 100,
+        namingLandmines: 0,
+        reposWithoutLifecycle: 0,
+      },
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.source === "ecr");
+  assertEquals(sig.severity, "ok");
+  assertEquals(sig.degraded, true);
+  assertStringIncludes(sig.detail, "hygiene clean");
+});
+
+Deno.test("kiro usage: net spend info signal; overage -> warn", async () => {
+  const steps = [makeStep(KIRO, "kiro-usage", "scan", ["2026-09-01"])];
+  const artifacts = [
+    makeArtifact(KIRO, "kiro-usage", "2026-09-01", {
+      scannedAt: hoursAgo(3),
+      billingPeriod: "2026-09-01",
+      currency: "USD",
+      users: [{ email: "a@b.org", netCostUsd: 40 }],
+      totals: {
+        userCount: 68,
+        grossCostUsd: 3380,
+        edpDiscountUsd: -473,
+        netCostUsd: 2907,
+        creditsConsumed: 8147,
+        overageUsd: 150,
+      },
+      fetchedAt: hoursAgo(3),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.source === "kiro-usage");
+  assertEquals(sig.severity, "warn");
+  assertStringIncludes(sig.detail, "68 users");
+  assertStringIncludes(sig.detail, "overage");
+  // Individual user emails must not surface in the ops line.
+  assertEquals(result.markdown.includes("a@b.org"), false);
+});
+
+Deno.test("gitlab logs: factual info signal, never escalates on count alone", async () => {
+  const steps = [makeStep(LOGS, "gitlab-logs", "find_errors", ["errors-x"])];
+  const artifacts = [
+    makeArtifact(LOGS, "gitlab-logs", "errors-x", {
+      logGroupName: "/aws/eks/o11n-eks-gitlab/cluster",
+      timeRange: "24h",
+      totalErrors: 100,
+      patterns: [
+        { pattern: "audit.k8s.io noise", count: 80 },
+        { pattern: "other", count: 20 },
+      ],
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.source === "gitlab-logs");
+  // High raw count but still info — the jev verdict carries the judgment.
+  assertEquals(sig.severity, "info");
+  assertStringIncludes(sig.detail, "100 error-keyword match(es)");
+});
+
+Deno.test("jev evaluation: score legend drives severity; triage skipped", async () => {
+  const steps = [
+    makeStep(JEV, "jev", "ask", [
+      "evaluation-security-posture",
+      "triage-appsvc-docs-5979",
+    ]),
+  ];
+  const artifacts = [
+    makeArtifact(JEV, "jev", "evaluation-security-posture", {
+      model: "jev-1.13.0",
+      state: {},
+      questions: {},
+      answers: {
+        needs_attention: { type: "noul", noul: 0.08 },
+        severity: {
+          type: "score",
+          score: 2,
+          legend: {
+            "0": "Routine: no new high-severity findings",
+            "1": "Worth a look this week",
+            "2": "Act today: new critical findings",
+          },
+          probabilities: { "0": 0.1, "1": 0.1, "2": 0.8 },
+          confidence: 0.7,
+        },
+      },
+      usage: {},
+      evaluatedAt: hoursAgo(1),
+    }),
+    // A triage resource in the same step must be recognized and skipped.
+    makeArtifact(JEV, "jev", "triage-appsvc-docs-5979", {
+      id: "appsvc/docs!5979",
+      answers: { reply_needed: { type: "noul", noul: 0.9 } },
+      evaluatedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const verdicts = (json.ops as Any[]).filter((o) => o.source === "jev");
+  // Exactly one verdict — the evaluation, not the triage.
+  assertEquals(verdicts.length, 1);
+  assertEquals(verdicts[0].label, "verdict:security-posture");
+  assertEquals(verdicts[0].severity, "critical");
+  assertStringIncludes(verdicts[0].detail, "Act today");
+  // The noul is surfaced as supporting context.
+  assertStringIncludes(verdicts[0].detail, "needs_attention 8%");
+  // No unrecognized-shape note from the triage resource.
+  assertEquals(
+    (json.notes as string[]).some((n) => n.includes("no recognizable")),
+    false,
+  );
+});
+
+Deno.test("jev evaluation: routine score -> ok verdict", async () => {
+  const steps = [makeStep(JEV, "jev", "ask", ["evaluation-cost-anomaly"])];
+  const artifacts = [
+    makeArtifact(JEV, "jev", "evaluation-cost-anomaly", {
+      model: "jev-1.13.0",
+      answers: {
+        is_anomaly: { type: "noul", noul: 0.1 },
+        severity: {
+          type: "score",
+          score: 0,
+          legend: {
+            "0": "Routine: spend stable",
+            "1": "Worth a look this week",
+            "2": "Investigate today",
+          },
+          probabilities: { "0": 0.9, "1": 0.05, "2": 0.05 },
+        },
+      },
+      evaluatedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) =>
+    o.label === "verdict:cost-anomaly"
+  );
+  assertEquals(sig.severity, "ok");
+});
+
+Deno.test("new signals do not mark the briefing degraded", async () => {
+  const steps = [
+    makeStep(SECURITYHUB, "sh-findings", "diff_findings", ["diff-x"]),
+    makeStep(COST, "aws-costs", "get_cost_comparison", ["comparison-7d"]),
+    makeStep(ECR, "ecr-survey", "survey", ["fleet"]),
+    makeStep(KIRO, "kiro-usage", "scan", ["2026-09-01"]),
+    makeStep(LOGS, "gitlab-logs", "find_errors", ["errors-x"]),
+    makeStep(JEV, "jev", "ask", ["evaluation-security-posture"]),
+  ];
+  const artifacts = [
+    makeArtifact(SECURITYHUB, "sh-findings", "diff-x", {
+      newFindings: [],
+      resolvedFindings: [],
+      newCount: 0,
+      resolvedCount: 0,
+      truncated: false,
+      currentSnapshot: [],
+      fetchedAt: hoursAgo(1),
+    }),
+    makeArtifact(COST, "aws-costs", "comparison-7d", {
+      region: "us-east-1",
+      queryType: "cost_comparison",
+      data: {
+        currentPeriod: { total: 90000 },
+        previousPeriod: { total: 90000 },
+        totalDelta: 0,
+        totalDeltaPercent: 0,
+        services: [],
+      },
+      fetchedAt: hoursAgo(1),
+    }),
+    makeArtifact(ECR, "ecr-survey", "fleet", {
+      generatedAt: hoursAgo(2),
+      failedProfiles: [],
+      accounts: [],
+      aggregate: {
+        totalRepos: 100,
+        namingLandmines: 0,
+        reposWithoutLifecycle: 0,
+      },
+    }),
+    makeArtifact(KIRO, "kiro-usage", "2026-09-01", {
+      scannedAt: hoursAgo(3),
+      billingPeriod: "2026-09-01",
+      totals: { userCount: 68, netCostUsd: 2907, overageUsd: 0 },
+      fetchedAt: hoursAgo(3),
+    }),
+    makeArtifact(LOGS, "gitlab-logs", "errors-x", {
+      logGroupName: "/aws/eks/o11n-eks-gitlab/cluster",
+      totalErrors: 0,
+      patterns: [],
+      fetchedAt: hoursAgo(1),
+    }),
+    makeArtifact(JEV, "jev", "evaluation-security-posture", {
+      answers: {
+        severity: {
+          type: "score",
+          score: 0,
+          legend: { "0": "Routine", "1": "Look", "2": "Act" },
+        },
+      },
+      evaluatedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  assertEquals(json.degraded, false);
+  assertEquals(json.sourceErrors.skippedSteps, 0);
+  assertEquals(
+    (json.notes as string[]).some((n) => n.includes("no recognizable")),
+    false,
+  );
+});
+
+// --- Adversarial-review regression tests (PR #445) ---
+
+Deno.test("jev noul-only evaluation: headline not duplicated in detail", async () => {
+  const steps = [makeStep(JEV, "jev", "ask", ["evaluation-logs-health"])];
+  const artifacts = [
+    makeArtifact(JEV, "jev", "evaluation-logs-health", {
+      model: "jev-1.13.0",
+      // No score answer — only a noul. The noul is the headline; it must not
+      // also be appended as supporting context.
+      answers: {
+        real_problem: { type: "noul", noul: 0.8 },
+      },
+      evaluatedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.source === "jev");
+  assertEquals(sig.severity, "warn"); // noul >= 0.5
+  assertEquals(sig.detail, "real_problem 80%");
+  // The bug was "real_problem 80%, real_problem 80%" — assert no duplication.
+  assertEquals(sig.detail.split("real_problem").length - 1, 1);
+});
+
+Deno.test("jev noul-only below 0.5 -> ok, single headline", async () => {
+  const steps = [makeStep(JEV, "jev", "ask", ["evaluation-x"])];
+  const artifacts = [
+    makeArtifact(JEV, "jev", "evaluation-x", {
+      answers: { some_q: { type: "noul", noul: 0.2 } },
+      evaluatedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.source === "jev");
+  assertEquals(sig.severity, "ok");
+  assertEquals(sig.detail, "some_q 20%");
+});
+
+Deno.test("securityhub: account_map + unknown shape still flags the unknown", async () => {
+  const steps = [
+    makeStep(SECURITYHUB, "sh-findings", "mixed", ["accts", "weird"]),
+  ];
+  const artifacts = [
+    makeArtifact(SECURITYHUB, "sh-findings", "accts", {
+      accounts: [{ id: "123456789012", name: "jw-cd-cicd-01" }],
+      count: 1,
+      truncated: false,
+      fetchedAt: hoursAgo(1),
+    }),
+    // An unrecognized shape alongside the account map.
+    makeArtifact(SECURITYHUB, "sh-findings", "weird", {
+      something: "unexpected",
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  // The unknown shape must still be reported despite the recognized account map.
+  assertEquals(
+    (json.notes as string[]).some((n) =>
+      n.includes("Security Hub: no recognizable data shape")
+    ),
+    true,
+  );
+});
+
+Deno.test("securityhub: account_map alone does NOT flag unrecognized", async () => {
+  const steps = [
+    makeStep(SECURITYHUB, "sh-findings", "resolve_accounts", ["accts"]),
+  ];
+  const artifacts = [
+    makeArtifact(SECURITYHUB, "sh-findings", "accts", {
+      accounts: [{ id: "123456789012", name: "jw-cd-cicd-01" }],
+      count: 1,
+      truncated: false,
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  assertEquals(
+    (json.notes as string[]).some((n) => n.includes("no recognizable")),
+    false,
+  );
+});
+
+// --- Flattened cost specs (post-flatten model output, no envelope) ---
+
+Deno.test("cost flattened costComparison: material rise -> warn with driver", async () => {
+  const steps = [
+    makeStep(COST, "aws-costs", "get_cost_comparison", ["comparison-7d"]),
+  ];
+  const artifacts = [
+    // The current model writes this FLATTENED (no queryType/data envelope).
+    makeArtifact(COST, "aws-costs", "comparison-7d", {
+      currentPeriod: { start: "2026-09-15", end: "2026-09-22", total: 120000 },
+      previousPeriod: { start: "2026-09-08", end: "2026-09-15", total: 90000 },
+      totalDelta: 30000,
+      totalDeltaPercent: 33.3,
+      services: [
+        {
+          service: "Amazon EKS",
+          currentAmount: 40000,
+          previousAmount: 15000,
+          delta: 25000,
+          deltaPercent: 140,
+        },
+      ],
+      days: 7,
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "spend-delta");
+  assertEquals(sig.severity, "warn");
+  assertStringIncludes(sig.detail, "+33.3%");
+  assertStringIncludes(sig.detail, "Amazon EKS");
+  // Must not fall through to the unrecognized-shape note.
+  assertEquals(
+    (json.notes as string[]).some((n) => n.includes("no recognizable")),
+    false,
+  );
+});
+
+Deno.test("cost flattened costDrivers: info signal names largest", async () => {
+  const steps = [
+    makeStep(COST, "aws-costs", "get_top_cost_drivers", ["top-drivers-7d"]),
+  ];
+  const artifacts = [
+    // FLATTENED: { drivers, totalCost, days, fetchedAt } — no envelope.
+    makeArtifact(COST, "aws-costs", "top-drivers-7d", {
+      drivers: [
+        {
+          service: "Claude Enterprise",
+          usageType: "MP:usage",
+          amount: 7500,
+          unit: "USD",
+        },
+        {
+          service: "AmazonCloudWatch",
+          usageType: "DataProc",
+          amount: 4500,
+          unit: "USD",
+        },
+      ],
+      totalCost: 12000,
+      days: 7,
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "drivers");
+  assertEquals(sig.severity, "info");
+  assertStringIncludes(sig.detail, "Claude Enterprise");
+  assertEquals(
+    (json.notes as string[]).some((n) => n.includes("no recognizable")),
+    false,
+  );
+});
+
+// --- Round-2 CI adversarial findings (PR #445) ---
+
+Deno.test("securityhub diff: truncated with unclassified new findings -> warn, not ok", async () => {
+  const steps = [
+    makeStep(SECURITYHUB, "sh-findings", "diff_findings", ["diff-trunc"]),
+  ];
+  const artifacts = [
+    // The dangerous case: 50 new findings reported by the aggregate, but the
+    // client-side array is truncated (empty here). Counting only the array
+    // would grade this "ok" and silently hide a potentially critical batch.
+    makeArtifact(SECURITYHUB, "sh-findings", "diff-trunc", {
+      newFindings: [],
+      resolvedFindings: [],
+      newCount: 50,
+      resolvedCount: 0,
+      truncated: true,
+      currentSnapshot: [],
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "findings-delta");
+  assertEquals(sig.severity, "warn");
+  assertStringIncludes(sig.detail, "50 new");
+  assertStringIncludes(sig.detail, "unclassified");
+});
+
+Deno.test("securityhub diff: truncated but fully classified critical stays critical", async () => {
+  const steps = [
+    makeStep(SECURITYHUB, "sh-findings", "diff_findings", ["diff-crit"]),
+  ];
+  const artifacts = [
+    makeArtifact(SECURITYHUB, "sh-findings", "diff-crit", {
+      newFindings: [{ severity: "CRITICAL" }, { severity: "CRITICAL" }],
+      resolvedFindings: [],
+      newCount: 2,
+      resolvedCount: 0,
+      truncated: true,
+      currentSnapshot: [],
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "findings-delta");
+  assertEquals(sig.severity, "critical");
+  // Fully classified (newCount === array length): no "unclassified" note.
+  assertEquals(sig.detail.includes("unclassified"), false);
+});
+
+Deno.test("jev: highest-severity score wins when multiple scores present", async () => {
+  const steps = [makeStep(JEV, "jev", "ask", ["evaluation-multi"])];
+  const artifacts = [
+    makeArtifact(JEV, "jev", "evaluation-multi", {
+      // A benign leading score followed by a severe one — first-wins would
+      // grade this "ok" and hide the critical.
+      answers: {
+        preflight: {
+          type: "score",
+          score: 0,
+          legend: { "0": "Benign", "1": "Mid", "2": "Severe" },
+        },
+        overall: {
+          type: "score",
+          score: 2,
+          legend: { "0": "Routine", "1": "Look", "2": "Act today" },
+        },
+      },
+      evaluatedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.source === "jev");
+  assertEquals(sig.severity, "critical");
+});
+
+Deno.test("jev: an answer named 'severity' is preferred as the grade", async () => {
+  const steps = [makeStep(JEV, "jev", "ask", ["evaluation-named"])];
+  const artifacts = [
+    makeArtifact(JEV, "jev", "evaluation-named", {
+      answers: {
+        // Equal-severity scores; the one literally named "severity" is the
+        // designated grade per the workflow convention.
+        other: {
+          type: "score",
+          score: 1,
+          legend: { "0": "a", "1": "b", "2": "c" },
+        },
+        severity: {
+          type: "score",
+          score: 1,
+          legend: { "0": "Routine", "1": "Worth a look", "2": "Act" },
+        },
+      },
+      evaluatedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.source === "jev");
+  assertStringIncludes(sig.detail, "Worth a look");
+});
+
+Deno.test("securityhub diff: unclassified count subtracts all classified array entries", async () => {
+  const steps = [
+    makeStep(SECURITYHUB, "sh-findings", "diff_findings", ["diff-med"]),
+  ];
+  const artifacts = [
+    // newCount=5 aggregate, but the truncated array holds 2 MEDIUM entries —
+    // 3 are truly unseen, not 5. Severity stays conservatively warn.
+    makeArtifact(SECURITYHUB, "sh-findings", "diff-med", {
+      newFindings: [{ severity: "MEDIUM" }, { severity: "MEDIUM" }],
+      resolvedFindings: [],
+      newCount: 5,
+      resolvedCount: 0,
+      truncated: true,
+      currentSnapshot: [],
+      fetchedAt: hoursAgo(1),
+    }),
+  ];
+  const result = await report.execute(createContext(steps, artifacts) as Any);
+  const json = result.json as Any;
+  const sig = (json.ops as Any[]).find((o) => o.label === "findings-delta");
+  assertEquals(sig.severity, "warn");
+  assertStringIncludes(sig.detail, "3 unclassified");
+  assertEquals(sig.detail.includes("5 unclassified"), false);
+});
